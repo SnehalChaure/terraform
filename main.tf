@@ -77,30 +77,6 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-
-resource "aws_security_group" "default" {
-  name        = "project-vpc-default-sg"
-  description = "Default SG to alllow traffic from the VPC"
-  vpc_id      = aws_vpc.vpc.id
-  depends_on = [
-    aws_vpc.vpc
-  ]
-
-    ingress {
-    from_port = "0"
-    to_port   = "0"
-    protocol  = "-1"
-    self      = true
-  }
-
-  egress {
-    from_port = "0"
-    to_port   = "0"
-    protocol  = "-1"
-    self      = "true"
-  }
-}
-
 # Create security group for EC2 instances
 resource "aws_security_group" "instance_sg" {
   name        = "InstanceSG"
