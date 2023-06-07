@@ -134,34 +134,6 @@ resource "aws_route_table_association" "private_2" {
   route_table_id = aws_route_table.private_2.id
 }
 
-
-resource "aws_security_group" "webserver_sg" {
-  name        = "privateSG"
-  description = "Security group for private EC2 instances"
-
-  vpc_id = aws_vpc.vpc.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-   from_port   = 80
-   to_port     = 80
-   protocol    = "tcp"
-   cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
 # security group for load balancer
 resource "aws_security_group" "elb_sg" {
   name        = "alb_sg"
@@ -186,6 +158,64 @@ resource "aws_security_group" "elb_sg" {
     Name = "alb_sg"
   } 
 }
+
+resource "aws_security_group" "webserver_sg" {
+  name        = "privateSG"
+  description = "Security group for private EC2 instances"
+
+  vpc_id = aws_vpc.vpc.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+   from_port   = 0
+   to_port     = 0
+   protocol    = "-1"
+   security_groups = [aws_security_group.elb_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Create ALB
+resource "aws_lb" "ALB-tf" {
+  name              = "ALB-tf"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups  = [aws_security_group.elb_sg.id]
+  subnets          = [aws_subnet.public_subnet_1.id,aws_subnet.public_subnet_2.id]
+  tags = {
+        name  = "AppLoadBalancer-tf"
+       }
+}
+
+resource "aws_lb_target_group" "TG-tf" {
+  name     = "TargetGroup-tf"
+  depends_on = ["aws_vpc.vpc"]
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.vpc.id}"
+  health_check {
+    interval            = 70
+    path                = "/index.html"
+    port                = 80
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 60
+    protocol            = "HTTP"
+    matcher             = "200,202"
+  }
+}
+
 
 resource "aws_launch_configuration" "webserver-launch-config" {
   name_prefix   = "webserver-launch-config"
@@ -225,35 +255,6 @@ resource "aws_autoscaling_group" "ASG-tf" {
     }
 }
 
-resource "aws_lb_target_group" "TG-tf" {
-  name     = "TargetGroup-tf"
-  depends_on = ["aws_vpc.vpc"]
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = "${aws_vpc.vpc.id}"
-  health_check {
-    interval            = 70
-    path                = "/index.html"
-    port                = 80
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    timeout             = 60
-    protocol            = "HTTP"
-    matcher             = "200,202"
-  }
-}
-
-# Create ALB
-resource "aws_lb" "ALB-tf" {
-  name              = "ALB-tf"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups  = [aws_security_group.elb_sg.id]
-  subnets          = [aws_subnet.public_subnet_1.id,aws_subnet.public_subnet_2.id]
-  tags = {
-        name  = "AppLoadBalancer-tf"
-       }
-}
 # Create ALB Listener
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.ALB-tf.arn
