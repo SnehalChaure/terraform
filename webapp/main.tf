@@ -198,6 +198,17 @@ resource "aws_lb" "ALB-tf" {
        }
 }
 
+# Create ALB Listener
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.ALB-tf.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.TG-tf.arn
+  }
+}
+
 resource "aws_lb_target_group" "TG-tf" {
   name     = "TargetGroup-tf"
   depends_on = ["aws_vpc.vpc"]
@@ -255,13 +266,6 @@ resource "aws_autoscaling_group" "ASG-tf" {
     }
 }
 
-# Create ALB Listener
-resource "aws_lb_listener" "front_end" {
-  load_balancer_arn = aws_lb.ALB-tf.arn
-  port              = "80"
-  protocol          = "HTTP"
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.TG-tf.arn
-  }
+output "alb_dns" {
+  value = aws_lb.ALB-tf.dns_name
 }
